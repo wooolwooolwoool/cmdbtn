@@ -26,25 +26,34 @@ class CommandSidebarProvider implements vscode.WebviewViewProvider {
 
     // 保存されていれば復元
     const saved = this.context.workspaceState.get(STORAGE_KEY);
-    var defalutcommandJson = {
-      Group1: [
-        { "Docker run1": "docker run sample1" },
-        { "Docker stop1": "docker stop sample1" }
-      ],
-      Group2: [
-        { "Docker run2": "docker run sample2" },
-        { "Docker stop2": "docker stop sample2" }
-      ]
+    const defalutcommandJson: Record<string, { cmds: Record<string, string>; openclose: string }> = {
+      "Group1": {
+        "cmds": {
+          "Docker run1": "docker run sample1",
+          "Docker stop1": "docker stop sample1"
+        },
+        "openclose": "open"
+      },
+      "Group2": {
+        "cmds": {
+          "Docker run2": "docker run sample2",
+          "Docker stop2": "docker stop sample2"
+        },
+        "openclose": "close"
+      }
     };
-    var commandJson = defalutcommandJson;
+    let commandJson: Record<string, { cmds: Record<string, string>; openclose: string }> = defalutcommandJson;
     try {
       webviewView.webview.html = getHtml(webviewView.webview, JSON.parse(JSON.stringify(saved)));
       commandJson = saved as typeof defalutcommandJson;
-    }
-    catch (e) {
+    } catch (e) {
       console.error("Error generating HTML:", e);
       vscode.window.showErrorMessage('Failed to load command sidebar. Load default commands.');
-      webviewView.webview.html = getHtml(webviewView.webview, defalutcommandJson);
+      try {
+        webviewView.webview.html = getHtml(webviewView.webview, defalutcommandJson);
+      } catch (e) {
+        console.error("Error generating HTML:", e);
+      }
     }
 
     console.log("Command JSON:", commandJson);
@@ -66,9 +75,19 @@ class CommandSidebarProvider implements vscode.WebviewViewProvider {
           webview.html = getHtml(webview, parsed); // 更新
           this.context.workspaceState.update(STORAGE_KEY, parsed); // 保存
         } catch (e) {
-          vscode.window.showErrorMessage('Invalid JSON');
+          vscode.window.showErrorMessage('Failed to import');
           console.error("Error parsing JSON:", e);
         }
+      } else if (message.open) {
+        const groupName = message.open;
+        console.log(`Opening group: ${groupName}`);
+        commandJson[groupName].openclose = "open";
+        this.context.workspaceState.update(STORAGE_KEY, commandJson);
+      } else if (message.close) {
+        const groupName = message.close;
+        console.log(`Closeing group: ${groupName}`);
+        commandJson[groupName].openclose = "close";
+        this.context.workspaceState.update(STORAGE_KEY, commandJson);
       }
     });
   }
@@ -77,14 +96,11 @@ class CommandSidebarProvider implements vscode.WebviewViewProvider {
 
 function getHtml(webview: vscode.Webview, commandJson: any): string {
   const commands = Object.entries(commandJson).map(([group, items]: [string, any]) => {
-    const buttons = items
-      .map((item: any) => {
-        const label = Object.keys(item)[0];
-        const cmd = item[label];
-        return `<div class="btn"><a class="button00" onclick="runCommand('${cmd}')">${label}</a></div>`;
+    var buttons = "";
+    Object.entries(items["cmds"]).forEach(([k, v]) => {
+        buttons += `<div class="btn"><button class="button00" onclick="runCommand('${v}')">${k}</button></div>`;
       })
-      .join("");
-    return `<details open><summary>${group}</summary>${buttons}</details>`;
+    return `<details ${items["openclose"]}><summary>${group}</summary>${buttons}</details>`;
   });
 
   return /* html */ `
@@ -100,10 +116,9 @@ function getHtml(webview: vscode.Webview, commandJson: any): string {
         }
         .button00 {
           background-color: #fff;
-          border: solid 2px #2f4f4f;
+          border: solid 1px #2f4f4f;
           color: black;
           width: 100%;
-          display:block;
           padding: 2px;
           text-decoration: none;
           font-size: 1em;
@@ -119,7 +134,6 @@ function getHtml(webview: vscode.Webview, commandJson: any): string {
       <hr>
       <details close><summary>Edit</summary>
         <textarea id="jsonEditor" style="width: 100%; height: 100px;"></textarea><br>
-        <button onclick="exportJson()">Export</button>
         <button onclick="importJson()">Import</button>
       </details>
       <script>
@@ -137,13 +151,28 @@ function getHtml(webview: vscode.Webview, commandJson: any): string {
           vscode.postMessage({ import: true, data });
         }
 
+        document.querySelectorAll('details').forEach(details => {
+          const summaryText = details.querySelector('summary').textContent;
+
+          details.addEventListener('toggle', () => {
+            if (details.open) {
+              vscode.postMessage({ open: \`\${summaryText}\` });
+            } else {
+              vscode.postMessage({ close: \`\${summaryText}\` });
+            }
+          });
+        });
+
         // Webviewからのメッセージ受信
         window.addEventListener('message', event => {
           const message = event.data;
           if (message.type === 'export') {
             document.getElementById('jsonEditor').value = message.data;
+          } else if (message.type === 'import') {
+            exportJson();
           }
         });
+        exportJson();
       </script>
     </body>
     </html>
