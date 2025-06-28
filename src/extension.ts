@@ -26,8 +26,9 @@ class CommandSidebarProvider implements vscode.WebviewViewProvider {
 
     // 保存されていれば復元
     const saved = this.context.workspaceState.get(STORAGE_KEY);
-    const defalutcommandJson: Record<string, { cmds: Record<string, string>; openclose: string }> = {
+    const defalutcommandJson: Record<string, { type: string, cmds: any; openclose: string }> = {
       "Group1": {
+        "type": "simple",
         "cmds": {
           "Docker run1": "docker run sample1",
           "Docker stop1": "docker stop sample1"
@@ -35,9 +36,18 @@ class CommandSidebarProvider implements vscode.WebviewViewProvider {
         "openclose": "open"
       },
       "Group2": {
+        "type": "color",
         "cmds": {
-          "Docker run2": "docker run sample2",
-          "Docker stop2": "docker stop sample2"
+          "Docker run2" :{
+            "cmd": "docker run sample2",
+            "color": "red",
+            "background-color": "black"
+          },
+          "Docker stop2" :{
+            "cmd": "docker run stop2",
+            "color": "blue",
+            "background-color": "white"
+          }
         },
         "openclose": "close"
       }
@@ -65,6 +75,7 @@ class CommandSidebarProvider implements vscode.WebviewViewProvider {
         const terminal = vscode.window.activeTerminal ?? vscode.window.createTerminal();
         terminal.show();
         terminal.sendText(message.command);
+        console.log(`Command sent: ${message.command}`);
       } else if (message.export) {
         webview.postMessage({ type: 'export', data: JSON.stringify(commandJson, null, 1) });
       } else if (message.import) {
@@ -96,11 +107,24 @@ class CommandSidebarProvider implements vscode.WebviewViewProvider {
 
 function getHtml(webview: vscode.Webview, commandJson: any): string {
   const commands = Object.entries(commandJson).map(([group, items]: [string, any]) => {
-    var buttons = "";
-    Object.entries(items["cmds"]).forEach(([k, v]) => {
-        buttons += `<div class="btn"><button class="button00" onclick="runCommand('${v}')">${k}</button></div>`;
-      })
-    return `<details ${items["openclose"]}><summary>${group}</summary>${buttons}</details>`;
+    if (items["type"] === "simple" || items["type"] === undefined) {
+      var buttons = "";
+      Object.entries(items["cmds"]).forEach(([k, v]) => {
+          buttons += `<div class="btn"><button class="button00" onclick="runCommand('${v}')">${k}</button></div>`;
+        })
+      return `<details ${items["openclose"]}><summary>${group}</summary>${buttons}</details>`;
+    } else if (items["type"] === "color") {
+      var buttons = "";
+      Object.entries(items["cmds"]).map(([k, item]: [string, any]) => {
+          var v = item["cmd"];
+          var c = "black"; // default color
+          if (items["type"] != undefined) {c = item["color"];}
+          var bc = "white"; // default background color
+          if (item["background-color"] != undefined) {bc = item["background-color"];}
+          buttons += `<div class="btn"><button class="button00_color" style="color: ${c}; background-color: ${bc};" onclick="runCommand('${v}')">${k}</button></div>`;
+        })
+      return `<details ${items["openclose"]}><summary>${group}</summary>${buttons}</details>`;
+    }
   });
 
   return /* html */ `
@@ -124,6 +148,17 @@ function getHtml(webview: vscode.Webview, commandJson: any): string {
           font-size: 1em;
         }
         .button00:hover {
+          color: #2f4f4f;
+          background-color: #b0e0e6;
+        }
+        .button00_color {
+          border: solid 1px #2f4f4f;
+          width: 100%;
+          padding: 2px;
+          text-decoration: none;
+          font-size: 1em;
+        }
+        .button00_color:hover {
           color: #2f4f4f;
           background-color: #b0e0e6;
         }
