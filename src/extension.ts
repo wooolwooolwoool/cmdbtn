@@ -27,26 +27,26 @@ class CommandSidebarProvider implements vscode.WebviewViewProvider {
     // 保存されていれば復元
     const saved = this.context.workspaceState.get(STORAGE_KEY);
     const defalutcommandJson: Record<string, { type: string, cmds: any; openclose: string }> = {
-      "Group1": {
+      "Group_simple": {
         "type": "simple",
         "cmds": {
-          "Docker run1": "docker run sample1",
-          "Docker stop1": "docker stop sample1"
+          "Docker run1": ["docker_run sample1_1", "docker_run sample1_2"],
+          "Docker stop1": "docker_stop sample1"
         },
         "openclose": "open"
       },
-      "Group2": {
-        "type": "color",
+      "Group_custom": {
+        "type": "custom",
         "cmds": {
           "Docker run2" :{
-            "cmd": "docker run sample2",
-            "color": "red",
-            "background-color": "black"
+            "cmd": "docker_run sample2",
+            "color": "white",
+            "background-color": "blue",
+            "padding": "4",
+            "font-size": "2em"
           },
-          "Docker stop2" :{
-            "cmd": "docker run stop2",
-            "color": "blue",
-            "background-color": "white"
+          "Docker stop2_default" :{
+            "cmd": "docker_run stop2"
           }
         },
         "openclose": "close"
@@ -72,10 +72,20 @@ class CommandSidebarProvider implements vscode.WebviewViewProvider {
 
     webviewView.webview.onDidReceiveMessage(message => {
       if (message.command) {
+        const cmd = message.command;
         const terminal = vscode.window.activeTerminal ?? vscode.window.createTerminal();
         terminal.show();
-        terminal.sendText(message.command);
-        console.log(`Command sent: ${message.command}`);
+        if (Array.isArray(cmd)) {
+          // 複数コマンドを順に送信
+          cmd.forEach((c) => {
+            terminal.sendText(c);
+            console.log(`Command sent seq: ${c}`);
+          });
+        } else {
+          // 単一コマンド
+          terminal.sendText(cmd);
+          console.log(`Command sent: ${cmd}`);
+        }
       } else if (message.export) {
         webview.postMessage({ type: 'export', data: JSON.stringify(commandJson, null, 1) });
       } else if (message.import) {
@@ -110,20 +120,33 @@ function getHtml(webview: vscode.Webview, commandJson: any): string {
     if (items["type"] === "simple" || items["type"] === undefined) {
       var buttons = "";
       Object.entries(items["cmds"]).forEach(([k, v]) => {
-          buttons += `<div class="btn"><button class="button00" onclick="runCommand('${v}')">${k}</button></div>`;
+          const cmdJson = JSON.stringify(v); // 配列でも文字列でもOK
+          buttons += `<div class="btn"><button class="button00" onclick='runCommand(${cmdJson})'>${k}</button></div>`;
         })
       return `<details ${items["openclose"]}><summary>${group}</summary>${buttons}</details>`;
-    } else if (items["type"] === "color") {
+    } else if (items["type"] === "custom") {
       var buttons = "";
       Object.entries(items["cmds"]).map(([k, item]: [string, any]) => {
           var v = item["cmd"];
-          var c = "black"; // default color
-          if (items["type"] != undefined) {c = item["color"];}
-          var bc = "white"; // default background color
-          if (item["background-color"] != undefined) {bc = item["background-color"];}
-          buttons += `<div class="btn"><button class="button00_color" style="color: ${c}; background-color: ${bc};" onclick="runCommand('${v}')">${k}</button></div>`;
+          var setting: Record<string, string> = { /* default value */
+            "color": "black",
+            "background-color": "white",
+            "font-size": "1em"
+          }
+          Object.entries(item).map(([kk, vv]: [string, any]) => {
+            setting[kk] = vv;
+          })
+          var style = "";
+          Object.entries(setting).forEach(([kk, vv]) => {
+            style += `${kk}:${vv};`;
+          })
+          buttons += `<div class="btn"><button class="button00_color" style="${style}" onclick="runCommand('${v}')">${k}</button></div>`;
         })
       return `<details ${items["openclose"]}><summary>${group}</summary>${buttons}</details>`;
+    } else {
+      console.error(`Unknown command type found: ${items["type"]} in command JSON. Ignoring it.`);
+      vscode.window.showErrorMessage(`Unknown command type found: ${items["type"]} in command JSON. Ignoring it.`);
+      return `<details ${items["openclose"]}><summary>${group}</summary>Unknown type</details>`;
     }
   });
 
@@ -156,7 +179,6 @@ function getHtml(webview: vscode.Webview, commandJson: any): string {
           width: 100%;
           padding: 2px;
           text-decoration: none;
-          font-size: 1em;
         }
         .button00_color:hover {
           color: #2f4f4f;
