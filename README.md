@@ -2,7 +2,10 @@
 
 ## Features
 
-TODO
+Adds a button that executes a command in the currently open terminal.
+You can edit the group, display name, and command to execute in JSON as shown below. Press the Import button to reflect the edits.
+
+![Sample Image](./resources/Image.png)
 
 ## Requirements
 

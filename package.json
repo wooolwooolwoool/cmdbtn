@@ -2,7 +2,7 @@
   "name": "CommandRunnerbutton",
   "displayName": "Command Runner Button",
   "description": "Command Runner",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "icon": "media/icon.png",
   "publisher": "woool",
   "repository": {

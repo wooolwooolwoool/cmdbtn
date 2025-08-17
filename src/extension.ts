@@ -13,15 +13,20 @@ export function activate(context: vscode.ExtensionContext) {
 }
 
 class CommandSidebarProvider implements vscode.WebviewViewProvider {
+  public webview: vscode.Webview | null = null;
+  private _disposables: vscode.Disposable[] = [];
+
   constructor(
     private readonly _extensionUri: vscode.Uri,
     private readonly context: vscode.ExtensionContext // context を受け取る
   ) {}
 
   resolveWebviewView(webviewView: vscode.WebviewView) {
-    const webview = webviewView.webview;
+    this.webview = webviewView.webview;
     webviewView.webview.options = {
-      enableScripts: true
+      enableScripts: true,
+      // Restrict the webview to only load resources from the `dist` and `webview-ui/build` directories
+      localResourceRoots: [this._extensionUri],
     };
 
     // 保存されていれば復元
@@ -67,10 +72,14 @@ class CommandSidebarProvider implements vscode.WebviewViewProvider {
     }
 
     console.log("Command JSON:", commandJson);
-    webview.onDidReceiveMessage(message => {
+    this.webview.onDidReceiveMessage(message => {
     });
 
     webviewView.webview.onDidReceiveMessage(message => {
+      if (this.webview === null) {
+        console.error("Webview is null, cannot process message.");
+        return;
+      }
       if (message.command) {
         const cmd = message.command;
         const terminal = vscode.window.activeTerminal ?? vscode.window.createTerminal();
@@ -87,13 +96,13 @@ class CommandSidebarProvider implements vscode.WebviewViewProvider {
           console.log(`Command sent: ${cmd}`);
         }
       } else if (message.export) {
-        webview.postMessage({ type: 'export', data: JSON.stringify(commandJson, null, 1) });
+        this.webview.postMessage({ type: 'export', data: JSON.stringify(commandJson, null, 1) });
       } else if (message.import) {
         try {
           console.log("Importing JSON:", message.data);
           const parsed = JSON.parse(message.data);
           commandJson = parsed; // 更新
-          webview.html = getHtml(webview, parsed); // 更新
+          this.webview.html = getHtml(this.webview, parsed); // 更新
           this.context.workspaceState.update(STORAGE_KEY, parsed); // 保存
         } catch (e) {
           vscode.window.showErrorMessage('Failed to import');
