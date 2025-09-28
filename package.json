@@ -2,7 +2,7 @@
   "name": "CommandRunnerbutton",
   "displayName": "Command Runner Button",
   "description": "Command Runner",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "icon": "media/icon.png",
   "publisher": "woool",
   "repository": {
@@ -53,20 +53,17 @@
     "test": "vscode-test"
   },
   "devDependencies": {
-    "@types/mocha": "^10.0.7",
     "@types/node": "20.x",
     "@types/vscode": "^1.98.0",
-    "@typescript-eslint/eslint-plugin": "^7.14.1",
-    "@typescript-eslint/parser": "^7.11.0",
-    "@vscode/test-cli": "^0.0.9",
-    "@vscode/test-electron": "^2.4.0",
-    "eslint": "^8.57.0",
     "ts-loader": "^9.5.1",
-    "typescript": "^5.4.5",
-    "webpack": "^5.92.1",
-    "webpack-cli": "^5.1.4"
+    "typescript": "^5.9.2",
+    "webpack": "^5.101.2",
+    "webpack-cli": "^6.0.1"
   },
   "dependencies": {
-    "@vscode/vsce": "^3.3.0"
+    "@types/mocha": "^10.0.10",
+    "@vscode/test-cli": "^0.0.11",
+    "@vscode/vsce": "^3.3.0",
+    "vsce": "^2.15.0"
   }
 }
